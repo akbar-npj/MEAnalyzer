@@ -147,6 +147,15 @@ To run ME Analyzer, you need to install [Python >= 3.7](https://www.python.org/d
 
 > pip3 install colorama crccheck pltable
 
+#### **C3. Building & Packaging**
+
+For comprehensive instructions on compiling standalone binaries and building native RPM packages for Fedora, RHEL, CentOS, and Fedora Asahi Remix (aarch64), see the [Compilation and Packaging Guide](BUILD.md).
+
+```bash
+# Build standalone binary and RPM packages automatically
+./build.sh all
+```
+
 ## **D. Pictures**
 
 **Note:** Some pictures may be outdated and depict older ME Analyzer versions/features.

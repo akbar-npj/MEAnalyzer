@@ -1,0 +1,98 @@
+.TH MEANALYZER 1 "October 2026" "ME Analyzer 1.312.0" "User Commands"
+.SH NAME
+meanalyzer, mea \- Intel Engine & Graphics Firmware Analysis Tool
+.SH SYNOPSIS
+\fBmeanalyzer\fR [\fIFILE\fR...] [\fIOPTIONS\fR...]
+.br
+\fBmea\fR [\fIFILE\fR...] [\fIOPTIONS\fR...]
+.SH DESCRIPTION
+\fBME Analyzer\fR is a specialized tool that parses, decodes, and identifies Intel Engine,
+Intel Graphics, and Independent firmware images.
+.PP
+It can be used by end-users looking for relevant firmware details (such as Family,
+Version, Release, Type, Date, SKU, Platform, Size, and Health Status) as well as by
+security researchers analyzing and unpacking Converged Security Engine (CSE) and
+Graphics System Controller (GSC) structures (such as FPT, BPDT, Layout Tables, File
+Tables, and Virtual File Systems).
+.SH OPTIONS
+.TP
+.B \-?
+Display help and usage summary.
+.TP
+.B \-skip
+Skip welcome and interactive options screen.
+.TP
+.B \-exit
+Skip the "Press enter to exit" interactive prompt on completion.
+.TP
+.B \-mass
+Recursively scan all files of a given input directory.
+.TP
+.B \-pdb
+Write unique input file database name to a text file.
+.TP
+.B \-dbn
+Rename input file based on its unique database name.
+.TP
+.B \-duc
+Disable automatic background check for ME Analyzer and database updates.
+.TP
+.B \-dcm
+Disable automatic input file copy upon messages.
+.TP
+.BI \-out " DIR"
+Define output directory for all ME Analyzer operations.
+.TP
+.B \-dfpt
+Display FPT, BPDT, OROM, and CSE/GSC Layout Table information.
+.TP
+.B \-unp86
+Unpack all supported CSE, GSC, and IUP firmware partitions.
+.TP
+.B \-bug86
+Enable pause on error during CSE, GSC, or IUP unpacking.
+.TP
+.B \-ver86
+Enable verbose output during CSE, GSC, or IUP unpacking.
+.TP
+.B \-html
+Write parsable HTML information reports during operation.
+.TP
+.B \-json
+Write parsable JSON information reports during operation.
+.SH SUPPORTED FAMILIES
+.IP \(bu 2
+(Converged Security) Management Engine \- CS(ME) 2\(en15
+.IP \(bu 2
+(Converged Security) Trusted Execution Engine \- (CS)TXE 0\(en4
+.IP \(bu 2
+(Converged Security) Server Platform Services \- (CS)SPS 1\(en5
+.IP \(bu 2
+Graphics System Controller \- GSC 100 (DG1)
+.IP \(bu 2
+Power Management Controller \- PMC (APL, BXT, GLK, CNP, ICP, LKF, JSP, CMP, TGP, MCC, DG1)
+.IP \(bu 2
+Platform Controller Hub Configuration \- PCHC (ICP, LKF, JSP, CMP, TGP, MCC)
+.IP \(bu 2
+USB Type C Physical \- PHY (ICP, LKF, CMP, TGP, DG1)
+.IP \(bu 2
+Graphics Option ROM \- OROM (DG1)
+.SH FILES
+.TP
+.I /usr/libexec/meanalyzer/MEA
+Compiled standalone native executable.
+.TP
+.I /usr/share/meanalyzer/MEA.dat
+Firmware repository lookup database.
+.TP
+.I /usr/share/meanalyzer/FileTable.dat
+CSE File Table definition database.
+.TP
+.I /usr/share/meanalyzer/Huffman.dat
+Huffman lookup dictionaries.
+.SH AUTHORS
+Written by Plato Mavropoulos.
+.SH COPYRIGHT
+Copyright \(co 2014\(en2026 Plato Mavropoulos.
+.br
+Released under the BSD-2-Clause-Patent License.
