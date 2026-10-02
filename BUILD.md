@@ -113,7 +113,32 @@ sudo ./build.sh install --prefix /usr/local
 
 # 6. Clean build artifacts
 ./build.sh clean
+
+# 7. View help and current detected version
+./build.sh help
 ```
+
+### Version Auto-Detection
+
+`build.sh` automatically reads the version string directly from `MEA.py` at runtime:
+
+```bash
+VERSION="$(grep -m1 'mea_ver\s*=' MEA.py | sed "s/.*mea_ver\s*=\s*['\"]//;s/['\"].*//")"
+```
+
+This means you **never need to manually update the version** in `build.sh` — it always tracks `MEA.py`. A hardcoded fallback (`1.312.0`) is used only if `MEA.py` is unavailable.
+
+### Package Selection Policy: Newest Timestamp
+
+When multiple compiled binaries or built RPM packages exist (e.g. from repeated builds), `build.sh` **always selects the one with the newest file modification timestamp** using `ls -t`. This applies consistently to:
+
+| Operation | Selection |
+|:----------|:----------|
+| `./build.sh test` | Newest `MEA*` binary in `dist/` is tested |
+| `./build.sh install` | Newest `MEA*` binary in `dist/` is installed |
+| `./build.sh rpm` (summary) | Newest binary RPM and SRPM are highlighted |
+
+This ensures the most recently built artifact is always preferred without requiring manual cleanup of older builds.
 
 ---
 

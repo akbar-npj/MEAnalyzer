@@ -2,13 +2,24 @@
 #
 # build.sh - Build, test, and package ME Analyzer
 #
+# Package selection policy: when multiple built packages or binaries are found,
+# the one with the NEWEST file modification timestamp is always preferred.
+#
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VERSION="1.312.0"
 DIST_DIR="${SCRIPT_DIR}/dist"
 BUILD_DIR="${SCRIPT_DIR}/build"
 RPMBUILD_DIR="${HOME}/rpmbuild"
+
+# Auto-detect version from MEA.py (line: mea_ver = '<version>')
+# Falls back to the hardcoded default if MEA.py is absent or unparseable.
+_DEFAULT_VERSION="1.312.0"
+VERSION="$(grep -m1 "mea_ver\s*=" "${SCRIPT_DIR}/MEA.py" 2>/dev/null \
+    | sed "s/.*mea_ver\s*=\s*['\"]//;s/['\"].*//" || true)"
+if [ -z "${VERSION}" ]; then
+    VERSION="${_DEFAULT_VERSION}"
+fi
 
 # Terminal color output
 if [ -t 1 ]; then
@@ -46,8 +57,9 @@ log_error() {
 }
 
 show_help() {
-    cat << EOF
+    cat <<EOF
 ${BOLD}ME Analyzer Build & Packaging Automation Tool${RESET}
+Detected version: ${CYAN}${VERSION}${RESET}  (auto-read from MEA.py)
 
 Usage: ./build.sh [COMMAND] [OPTIONS]
 
@@ -63,6 +75,10 @@ Commands:
 Options:
   --prefix <PATH>    Installation prefix (default: /usr/local)
 
+Package Selection Policy:
+  When multiple compiled binaries or RPM packages exist, the one with the
+  NEWEST modification timestamp is always selected automatically.
+
 Examples:
   ./build.sh compile
   ./build.sh test
@@ -70,7 +86,6 @@ Examples:
   sudo ./build.sh install --prefix /usr/local
 EOF
 }
-
 find_pyinstaller() {
     export PATH="$HOME/.local/bin:$PATH"
     if command -v pyinstaller >/dev/null 2>&1; then
@@ -128,10 +143,19 @@ do_test() {
     log_info "Running ME Analyzer verification tests..."
     export PYTHONWARNINGS="${PYTHONWARNINGS:-ignore::DeprecationWarning}"
 
-    if [ -f "${DIST_DIR}/MEA" ]; then
-        log_info "Testing standalone compiled binary..."
-        "${DIST_DIR}/MEA" -skip -exit -? >/dev/null
-        log_success "Standalone binary test PASSED."
+    # Select the newest compiled binary in dist/ by modification timestamp.
+    # This handles cases where multiple named binaries may exist (e.g. MEA, MEA.1, MEA.2).
+    local newest_bin
+    newest_bin="$(find "${DIST_DIR}" -maxdepth 1 -type f -executable \
+        -name 'MEA*' 2>/dev/null \
+        | xargs ls -t 2>/dev/null | head -n1 || true)"
+
+    if [ -n "${newest_bin}" ]; then
+        log_info "Testing standalone compiled binary (newest by timestamp): ${newest_bin}"
+        "${newest_bin}" -skip -exit -? >/dev/null
+        log_success "Standalone binary test PASSED: $(basename "${newest_bin}")"
+    else
+        log_warn "No compiled binary found in ${DIST_DIR}/. Skipping binary test."
     fi
 
     log_info "Testing Python script execution..."
@@ -162,9 +186,37 @@ do_rpm() {
 
     log_success "RPM build completed successfully!"
     echo ""
-    log_info "Generated packages:"
-    find "${RPMBUILD_DIR}/RPMS" -name "meanalyzer-*.rpm" -exec ls -lh {} +
-    find "${RPMBUILD_DIR}/SRPMS" -name "meanalyzer-*.src.rpm" -exec ls -lh {} +
+
+    # ----------------------------------------------------------------
+    # Package selection: list all packages sorted by NEWEST timestamp first.
+    # The first entry in each category is the package that would be used
+    # by subsequent install/deploy steps.
+    # ----------------------------------------------------------------
+    log_info "Generated packages (sorted newest timestamp first):"
+
+    local newest_rpm newest_srpm
+    newest_rpm="$(find "${RPMBUILD_DIR}/RPMS" -name "meanalyzer-*.rpm" 2>/dev/null \
+        | xargs ls -t 2>/dev/null | head -n1 || true)"
+    newest_srpm="$(find "${RPMBUILD_DIR}/SRPMS" -name "meanalyzer-*.src.rpm" 2>/dev/null \
+        | xargs ls -t 2>/dev/null | head -n1 || true)"
+
+    echo ""
+    log_info "Binary RPMs (all, newest first):"
+    find "${RPMBUILD_DIR}/RPMS" -name "meanalyzer-*.rpm" 2>/dev/null \
+        | xargs ls -lt 2>/dev/null || true
+
+    echo ""
+    log_info "Source RPMs (all, newest first):"
+    find "${RPMBUILD_DIR}/SRPMS" -name "meanalyzer-*.src.rpm" 2>/dev/null \
+        | xargs ls -lt 2>/dev/null || true
+
+    echo ""
+    if [ -n "${newest_rpm}" ]; then
+        log_success "  ➜  Newest binary RPM  : ${newest_rpm}"
+    fi
+    if [ -n "${newest_srpm}" ]; then
+        log_success "  ➜  Newest source RPM  : ${newest_srpm}"
+    fi
 }
 
 do_install() {
@@ -176,16 +228,28 @@ do_install() {
     mkdir -p "${prefix}/share/meanalyzer"
     mkdir -p "${prefix}/share/man/man1"
 
-    if [ ! -f "${DIST_DIR}/MEA" ]; then
-        log_info "Binary not found in dist/. Compiling first..."
+    # Select the newest compiled binary from dist/ by modification timestamp.
+    local install_bin
+    install_bin="$(find "${DIST_DIR}" -maxdepth 1 -type f -executable \
+        -name 'MEA*' 2>/dev/null \
+        | xargs ls -t 2>/dev/null | head -n1 || true)"
+
+    if [ -z "${install_bin}" ]; then
+        log_info "No compiled binary found in dist/. Compiling first..."
         do_compile
+        # Re-select after compile
+        install_bin="$(find "${DIST_DIR}" -maxdepth 1 -type f -executable \
+            -name 'MEA*' 2>/dev/null \
+            | xargs ls -t 2>/dev/null | head -n1 || true)"
     fi
 
-    install -p -m 0755 "${DIST_DIR}/MEA" "${prefix}/libexec/meanalyzer/MEA"
+    log_info "Installing binary (newest by timestamp): ${install_bin}"
+    install -p -m 0755 "${install_bin}" "${prefix}/libexec/meanalyzer/MEA"
     install -p -m 0644 "${SCRIPT_DIR}/MEA.dat" "${prefix}/share/meanalyzer/MEA.dat"
     install -p -m 0644 "${SCRIPT_DIR}/FileTable.dat" "${prefix}/share/meanalyzer/FileTable.dat"
     install -p -m 0644 "${SCRIPT_DIR}/Huffman.dat" "${prefix}/share/meanalyzer/Huffman.dat"
     install -p -m 0755 "${SCRIPT_DIR}/MEA.py" "${prefix}/share/meanalyzer/MEA.py"
+
 
     ln -sf ../../share/meanalyzer/MEA.dat "${prefix}/libexec/meanalyzer/MEA.dat"
     ln -sf ../../share/meanalyzer/FileTable.dat "${prefix}/libexec/meanalyzer/FileTable.dat"
